@@ -4,12 +4,15 @@ import { AlertCircle, ArrowUpRight, Check } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
+// Update the TradeRecommendation interface to accept string action type
 interface TradeRecommendation {
-  action: 'BUY' | 'SELL';
+  action: string; // Changed from 'BUY' | 'SELL' to string to match API
   confidence: number;
   reason: string;
-  priceTarget: number;
-  stopLoss: number;
+  price_target?: number; // Added optional for backward compatibility
+  priceTarget?: number; // Added optional for backward compatibility
+  stop_loss?: number; // Added optional for backward compatibility
+  stopLoss?: number; // Added optional for backward compatibility
 }
 
 const TradePanel: React.FC = () => {
@@ -24,7 +27,15 @@ const TradePanel: React.FC = () => {
       setIsLoading(true);
       try {
         const data = await api.getTradeRecommendation();
-        setRecommendation(data);
+        // Transform the data to match our component's expected format
+        const transformedData: TradeRecommendation = {
+          action: data.action,
+          confidence: data.confidence,
+          reason: data.reason,
+          priceTarget: data.price_target || 0,
+          stopLoss: data.stop_loss || 0
+        };
+        setRecommendation(transformedData);
       } catch (error) {
         console.error('Failed to fetch trade recommendation:', error);
       } finally {
@@ -99,11 +110,11 @@ const TradePanel: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-defi-gray text-xs mb-1">Price Target</p>
-                <p className="text-white font-medium">${recommendation.priceTarget.toLocaleString()}</p>
+                <p className="text-white font-medium">${(recommendation.priceTarget || recommendation.price_target || 0).toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-defi-gray text-xs mb-1">Stop Loss</p>
-                <p className="text-white font-medium">${recommendation.stopLoss.toLocaleString()}</p>
+                <p className="text-white font-medium">${(recommendation.stopLoss || recommendation.stop_loss || 0).toLocaleString()}</p>
               </div>
             </div>
           </div>

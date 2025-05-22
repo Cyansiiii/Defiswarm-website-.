@@ -1,6 +1,14 @@
-
 // This is a simulation of API calls to the DeFiSwarm backend
 // In a real implementation, these would call actual API endpoints
+
+// Interface for trade recommendation response
+interface MockTradeRecommendationResponse {
+  action: string; // 'BUY' or 'SELL'
+  confidence: number;
+  reason: string;
+  price_target: number;
+  stop_loss: number;
+}
 
 // Sample ETH price history data
 const generatePriceHistory = () => {
@@ -58,21 +66,6 @@ const generateActivityLog = () => {
   return activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 };
 
-// Current trade recommendation
-const getTradeRecommendation = () => {
-  const recommendations = [
-    {
-      action: "BUY",
-      confidence: 87,
-      reason: "Strong upward trend with increasing volume",
-      priceTarget: 3800,
-      stopLoss: 3450
-    }
-  ];
-  
-  return recommendations[0];
-};
-
 // Get current ETH price with minor random fluctuations
 const getCurrentPrice = () => {
   // Base price around $3600
@@ -80,6 +73,21 @@ const getCurrentPrice = () => {
   // Add small random fluctuation
   const randomFactor = 0.995 + Math.random() * 0.01;
   return parseFloat((basePrice * randomFactor).toFixed(2));
+};
+
+// Current trade recommendation - modified to match the new structure
+const getTradeRecommendation = (): MockTradeRecommendationResponse => {
+  const actions = ['BUY', 'SELL'];
+  const randomAction = actions[Math.floor(Math.random() * actions.length)];
+  const currentPrice = getCurrentPrice();
+
+  return {
+    action: randomAction,
+    confidence: parseFloat((70 + Math.random() * 30).toFixed(0)), // 70 to 100
+    reason: `Strong ${randomAction === 'BUY' ? 'upward' : 'downward'} trend with ${randomAction === 'BUY' ? 'increasing' : 'decreasing'} volume`,
+    price_target: parseFloat((currentPrice + (randomAction === 'BUY' ? 200 : -200)).toFixed(2)),
+    stop_loss: parseFloat((currentPrice + (randomAction === 'BUY' ? -150 : 150)).toFixed(2))
+  };
 };
 
 export const api = {

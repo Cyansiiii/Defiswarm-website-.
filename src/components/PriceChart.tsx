@@ -4,13 +4,13 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Area, AreaChart 
 } from 'recharts';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="chart-tooltip">
+      <div className="chart-tooltip bg-defi-blue/90 border border-defi-blue/50 backdrop-blur-sm p-3 rounded-md">
         <p className="text-white text-sm font-medium">{`Date: ${label}`}</p>
         <p className="text-defi-bright-teal text-lg font-mono">${payload[0].value.toLocaleString()}</p>
       </div>
@@ -24,22 +24,63 @@ const PriceChart: React.FC = () => {
   const [priceData, setPriceData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('7d');
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
   
   useEffect(() => {
-    const fetchPriceData = async () => {
-      setIsLoading(true);
-      try {
-        const data = await api.getETHPriceHistory();
-        setPriceData(data);
-      } catch (error) {
-        console.error('Failed to fetch price data:', error);
-      } finally {
-        setIsLoading(false);
+    fetchPriceData();
+    fetchCurrentPrice();
+    
+    // Set up interval to refresh current price every 15 seconds
+    const interval = window.setInterval(() => {
+      fetchCurrentPrice();
+    }, 15000);
+    
+    setRefreshInterval(interval);
+    
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
       }
     };
-    
-    fetchPriceData();
   }, [timeRange]);
+  
+  const fetchPriceData = async () => {
+    setIsLoading(true);
+    try {
+      let interval = '1d';
+      let limit = 7;
+      
+      // Convert timeRange to Binance API parameters
+      if (timeRange === '24h') {
+        interval = '1h';
+        limit = 24;
+      } else if (timeRange === '7d') {
+        interval = '1d';
+        limit = 7;
+      } else if (timeRange === '30d') {
+        interval = '1d';
+        limit = 30;
+      }
+      
+      const data = await api.getETHPriceHistory();
+      setPriceData(data);
+    } catch (error) {
+      console.error('Failed to fetch price data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const fetchCurrentPrice = async () => {
+    try {
+      const price = await api.getCurrentETHPrice();
+      setCurrentPrice(price);
+    } catch (error) {
+      console.error('Failed to fetch current price:', error);
+    }
+  };
   
   // Calculate price change
   const calculatePriceChange = () => {
@@ -57,13 +98,28 @@ const PriceChart: React.FC = () => {
     };
   };
   
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([fetchPriceData(), fetchCurrentPrice()]);
+    setIsRefreshing(false);
+  };
+  
   const priceChange = calculatePriceChange();
+  const displayPrice = currentPrice || (priceData.length > 0 ? priceData[priceData.length - 1].price : 0);
   
   return (
     <div className="bg-defi-blue/20 rounded-xl border border-defi-blue/30 p-6 backdrop-blur-sm">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">ETH Price Chart</h2>
+        <h2 className="text-xl font-bold">ETH/USDT Price</h2>
         <div className="flex space-x-2">
+          <button
+            onClick={handleRefresh}
+            className="mr-4 p-1.5 rounded-full bg-defi-blue/30 hover:bg-defi-blue/50 transition-colors"
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`h-4 w-4 text-defi-gray ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+          
           <button 
             className={`px-3 py-1 rounded-md text-sm ${timeRange === '24h' ? 'bg-defi-blue text-white' : 'bg-defi-blue/30 text-defi-gray'}`}
             onClick={() => setTimeRange('24h')}
@@ -88,14 +144,15 @@ const PriceChart: React.FC = () => {
       <div className="mb-6">
         <div className="flex items-baseline">
           <span className="text-2xl font-bold mr-2">
-            ${priceData.length > 0 ? priceData[priceData.length - 1].price.toLocaleString() : '0'}
+            ${displayPrice.toLocaleString()}
           </span>
           <div className={`flex items-center text-sm ${priceChange.isPositive ? 'text-defi-green' : 'text-defi-red'}`}>
             {priceChange.isPositive ? <ArrowUp className="h-4 w-4 mr-1" /> : <ArrowDown className="h-4 w-4 mr-1" />}
             ${priceChange.value.toFixed(2)} ({priceChange.percentage.toFixed(2)}%)
           </div>
         </div>
-        <p className="text-defi-gray text-sm">Last 7 days</p>
+        <p className="text-defi-gray text-sm">Last {timeRange === '24h' ? '24 hours' : timeRange === '7d' ? '7 days' : '30 days'}</p>
+        <p className="text-defi-bright-teal text-xs mt-1">Real-time data from Binance</p>
       </div>
       
       {isLoading ? (

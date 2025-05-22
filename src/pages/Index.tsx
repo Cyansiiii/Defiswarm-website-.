@@ -1,13 +1,37 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import PriceChart from '@/components/PriceChart';
 import TradePanel from '@/components/TradePanel';
 import ActivityLog from '@/components/ActivityLog';
 import Footer from '@/components/Footer';
+import { api } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
+import { ArrowRight } from 'lucide-react';
 
 const Index = () => {
+  useEffect(() => {
+    // Start the simulation automatically when the page loads
+    const startAutomatically = async () => {
+      try {
+        const status = api.isSimulationActive();
+        
+        if (!status.active) {
+          api.startSimulation();
+          toast({
+            title: "Simulation Started",
+            description: "DeFiSwarm is now actively monitoring ETH/USDT prices.",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to start simulation:", error);
+      }
+    };
+    
+    startAutomatically();
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-defi-dark-blue">
       <Header />
@@ -105,6 +129,3 @@ const Index = () => {
 };
 
 export default Index;
-
-// Import the ArrowRight icon at the top
-import { ArrowRight } from 'lucide-react';

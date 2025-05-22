@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, ArrowUpRight, Check } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, Check, Play, Pause } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
@@ -21,30 +21,90 @@ const TradePanel: React.FC = () => {
   const [amount, setAmount] = useState<string>('1');
   const [isExecuting, setIsExecuting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isSimulationActive, setIsSimulationActive] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
   
   useEffect(() => {
-    const fetchRecommendation = async () => {
-      setIsLoading(true);
-      try {
-        const data = await api.getTradeRecommendation();
-        // Transform the data to match our component's expected format
-        const transformedData: TradeRecommendation = {
-          action: data.action,
-          confidence: data.confidence,
-          reason: data.reason,
-          priceTarget: data.price_target || 0,
-          stopLoss: data.stop_loss || 0
-        };
-        setRecommendation(transformedData);
-      } catch (error) {
-        console.error('Failed to fetch trade recommendation:', error);
-      } finally {
-        setIsLoading(false);
+    fetchRecommendation();
+    
+    // Check if simulation is already running
+    const checkSimulationStatus = async () => {
+      const status = api.isSimulationActive();
+      setIsSimulationActive(status.active);
+      
+      if (status.active && refreshInterval === null) {
+        startPeriodicRefresh();
       }
     };
     
-    fetchRecommendation();
+    checkSimulationStatus();
+    
+    return () => {
+      if (refreshInterval !== null) {
+        clearInterval(refreshInterval);
+      }
+    };
   }, []);
+  
+  const fetchRecommendation = async () => {
+    setIsLoading(true);
+    try {
+      const data = await api.getTradeRecommendation();
+      // Transform the data to match our component's expected format
+      const transformedData: TradeRecommendation = {
+        action: data.action,
+        confidence: data.confidence,
+        reason: data.reason,
+        priceTarget: data.price_target || 0,
+        stopLoss: data.stop_loss || 0
+      };
+      setRecommendation(transformedData);
+    } catch (error) {
+      console.error('Failed to fetch trade recommendation:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const startPeriodicRefresh = () => {
+    const interval = window.setInterval(() => {
+      fetchRecommendation();
+    }, 30000); // Refresh data every 30 seconds
+    
+    setRefreshInterval(interval);
+  };
+  
+  const toggleSimulation = async () => {
+    if (isSimulationActive) {
+      // Stop simulation
+      const status = api.stopSimulation();
+      setIsSimulationActive(status.active);
+      
+      if (refreshInterval !== null) {
+        clearInterval(refreshInterval);
+        setRefreshInterval(null);
+      }
+      
+      toast({
+        title: "Simulation Stopped",
+        description: "DeFiSwarm trading simulation has been paused.",
+      });
+    } else {
+      // Start simulation
+      const status = api.startSimulation();
+      setIsSimulationActive(status.active);
+      
+      startPeriodicRefresh();
+      
+      toast({
+        title: "Simulation Started",
+        description: "DeFiSwarm is now actively monitoring ETH/USDT.",
+      });
+      
+      // Refresh the recommendation immediately when starting simulation
+      fetchRecommendation();
+    }
+  };
   
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -83,7 +143,30 @@ const TradePanel: React.FC = () => {
   
   return (
     <div className="bg-defi-blue/20 rounded-xl border border-defi-blue/30 p-6 backdrop-blur-sm">
-      <h2 className="text-xl font-bold mb-6">Trade Simulator</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold">Trade Simulator</h2>
+        
+        <button
+          onClick={toggleSimulation}
+          className={`flex items-center space-x-2 px-3 py-1 rounded-md text-sm ${
+            isSimulationActive 
+              ? 'bg-defi-red hover:bg-defi-red/90' 
+              : 'bg-defi-green hover:bg-defi-green/90'
+          } text-white transition-colors`}
+        >
+          {isSimulationActive ? (
+            <>
+              <Pause className="h-4 w-4 mr-1" />
+              <span>Stop Simulation</span>
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4 mr-1" />
+              <span>Start Simulation</span>
+            </>
+          )}
+        </button>
+      </div>
       
       {isLoading ? (
         <div className="h-48 flex items-center justify-center">
@@ -97,7 +180,7 @@ const TradePanel: React.FC = () => {
               : 'bg-defi-red/10 border-defi-red/30'
           }`}>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-defi-gray text-sm">AI Recommendation</div>
+              <div className="text-defi-gray text-sm">Trading Signal</div>
               <div className={`text-sm font-medium px-3 py-1 rounded-full ${
                 recommendation.action === 'BUY' ? 'bg-defi-green text-white' : 'bg-defi-red text-white'
               }`}>
@@ -180,7 +263,9 @@ const TradePanel: React.FC = () => {
         <div className="h-48 flex flex-col items-center justify-center">
           <AlertCircle className="h-8 w-8 text-defi-gray mb-2" />
           <p className="text-defi-gray">Unable to load recommendation</p>
-          <button className="mt-4 text-defi-bright-teal text-sm underline">
+          <button 
+            onClick={fetchRecommendation}
+            className="mt-4 text-defi-bright-teal text-sm underline">
             Try again
           </button>
         </div>

@@ -18,11 +18,14 @@ const Index = () => {
         const status = api.isSimulationActive();
         
         if (!status.active) {
-          api.startSimulation();
-          toast({
-            title: "Simulation Started",
-            description: "DeFiSwarm is now actively monitoring ETH/USDT prices.",
-          });
+          const newStatus = api.startSimulation();
+          
+          if (newStatus.active) {
+            toast({
+              title: "Simulation Started",
+              description: "DeFiSwarm is now actively monitoring ETH/USDT prices.",
+            });
+          }
         }
       } catch (error) {
         console.error("Failed to start simulation:", error);

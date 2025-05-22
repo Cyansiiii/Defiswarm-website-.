@@ -28,7 +28,7 @@ const TradePanel: React.FC = () => {
     fetchRecommendation();
     
     // Check if simulation is already running
-    const checkSimulationStatus = async () => {
+    const checkSimulationStatus = () => {
       const status = api.isSimulationActive();
       setIsSimulationActive(status.active);
       

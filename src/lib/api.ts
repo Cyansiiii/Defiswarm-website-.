@@ -1,4 +1,3 @@
-
 // This file implements both simulated API calls and real Binance API integration
 // Public Binance API key - safe to store in client-side code as it's read-only
 const BINANCE_API_KEY = 'ixsmIWfrr2Gby2qNCgXT41dAUQFfp9Pl59wnibJVGIvv2xECktwUtjaxagFaDooX';
@@ -27,9 +26,37 @@ interface BinanceKline {
   ignore: string;
 }
 
-// Store the simulation state
+interface SimulationMetrics {
+  volatility: number;
+  averagePrice: number;
+  priceRange: {
+    min: number;
+    max: number;
+  };
+  trades: {
+    total: number;
+    buys: number;
+    sells: number;
+    successRate: number;
+  };
+  events: {
+    timestamp: string;
+    description: string;
+    impact: "LOW" | "MEDIUM" | "HIGH";
+  }[];
+}
+
+// Store the simulation state and metrics
 let simulationActive = false;
 let simulationInterval: number | null = null;
+let priceHistory: number[] = [];
+let marketEvents: { timestamp: string; description: string; impact: "LOW" | "MEDIUM" | "HIGH" }[] = [];
+let tradeStats = {
+  total: 0,
+  buys: 0,
+  sells: 0,
+  successful: 0
+};
 
 // Updated to use Binance public API without CORS issues through a proxy
 const fetchRealTimePrice = async (): Promise<number> => {
@@ -37,10 +64,51 @@ const fetchRealTimePrice = async (): Promise<number> => {
     // Use proxy to avoid CORS issues
     const response = await fetch('https://api1.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
     const data = await response.json();
-    return parseFloat(data.price);
+    const price = parseFloat(data.price);
+    
+    // Store price in history for volatility calculation (keep last 100 points)
+    if (simulationActive) {
+      priceHistory.push(price);
+      if (priceHistory.length > 100) {
+        priceHistory.shift();
+      }
+      
+      // Detect significant price changes and log them as events
+      detectPriceEvents(price);
+    }
+    
+    return price;
   } catch (error) {
     console.error('Error fetching real-time price:', error);
     return getCurrentPrice(); // Fallback to mock data
+  }
+};
+
+// Detect significant price movements and create market events
+const detectPriceEvents = (currentPrice: number): void => {
+  if (priceHistory.length < 5) return;
+  
+  const previousPrice = priceHistory[priceHistory.length - 2];
+  const percentChange = (currentPrice - previousPrice) / previousPrice;
+  
+  // Detect significant price movements
+  if (Math.abs(percentChange) > 0.01) { // More than 1% change
+    const eventDescription = percentChange > 0 
+      ? `ETH price jumped ${(percentChange * 100).toFixed(2)}% to $${currentPrice.toFixed(2)}`
+      : `ETH price dropped ${(Math.abs(percentChange) * 100).toFixed(2)}% to $${currentPrice.toFixed(2)}`;
+      
+    const impact = Math.abs(percentChange) > 0.03 ? "HIGH" : (Math.abs(percentChange) > 0.02 ? "MEDIUM" : "LOW");
+    
+    marketEvents.unshift({
+      timestamp: new Date().toISOString(),
+      description: eventDescription,
+      impact: impact as "LOW" | "MEDIUM" | "HIGH"
+    });
+    
+    // Keep only the last 20 events
+    if (marketEvents.length > 20) {
+      marketEvents.pop();
+    }
   }
 };
 
@@ -104,6 +172,53 @@ const generateTradingSignal = async (): Promise<MockTradeRecommendationResponse>
     // Fallback to mock recommendation
     return getTradeRecommendation();
   }
+};
+
+// Calculate volatility from price history
+const calculateVolatility = (): number => {
+  if (priceHistory.length < 2) return 0;
+  
+  const returns = [];
+  for (let i = 1; i < priceHistory.length; i++) {
+    const returnVal = (priceHistory[i] - priceHistory[i-1]) / priceHistory[i-1];
+    returns.push(returnVal);
+  }
+  
+  // Calculate standard deviation of returns (volatility)
+  const mean = returns.reduce((sum, val) => sum + val, 0) / returns.length;
+  const squaredDiffs = returns.map(val => Math.pow(val - mean, 2));
+  const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / squaredDiffs.length;
+  const volatility = Math.sqrt(variance);
+  
+  return volatility;
+};
+
+// Generate simulation metrics
+const getSimulationMetrics = (): SimulationMetrics => {
+  const prices = priceHistory.length > 0 ? priceHistory : [getCurrentPrice()];
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const avgPrice = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+  
+  // Calculate success rate, default to 0.8 if no trades
+  const successRate = tradeStats.total > 0 ? 
+    tradeStats.successful / tradeStats.total : 0.8;
+  
+  return {
+    volatility: calculateVolatility(),
+    averagePrice: avgPrice,
+    priceRange: {
+      min: minPrice,
+      max: maxPrice
+    },
+    trades: {
+      total: tradeStats.total,
+      buys: tradeStats.buys,
+      sells: tradeStats.sells,
+      successRate: successRate
+    },
+    events: marketEvents
+  };
 };
 
 // Sample ETH price history data (fallback if API fails)
@@ -194,9 +309,36 @@ const startSimulation = () => {
   simulationActive = true;
   console.log('DeFiSwarm simulation started');
   
-  // Set up an interval to periodically fetch new data and update the recommendation
+  // Reset price history and events when starting a new simulation
+  priceHistory = [];
+  marketEvents = [];
+  
+  // Set up an interval to periodically fetch new data
   simulationInterval = window.setInterval(() => {
     console.log('Simulation tick: Fetching latest data');
+    fetchRealTimePrice().then(price => {
+      // Periodically simulate trades based on price movements
+      if (Math.random() > 0.7) { // 30% chance of a trade
+        const action = Math.random() > 0.5 ? 'BUY' : 'SELL';
+        const success = Math.random() > 0.2; // 80% success rate
+        
+        tradeStats.total++;
+        if (action === 'BUY') tradeStats.buys++;
+        else tradeStats.sells++;
+        if (success) tradeStats.successful++;
+        
+        // Log trade as an event
+        marketEvents.unshift({
+          timestamp: new Date().toISOString(),
+          description: `${action} order ${success ? 'executed' : 'failed'} at $${price.toFixed(2)}`,
+          impact: success ? "MEDIUM" : "HIGH"
+        });
+        
+        if (marketEvents.length > 20) {
+          marketEvents.pop();
+        }
+      }
+    });
   }, 30000); // Update every 30 seconds
   
   return { active: simulationActive };
@@ -269,6 +411,14 @@ export const api = {
     const currentPrice = await fetchRealTimePrice().catch(() => getCurrentPrice());
     const success = Math.random() > 0.1; // 90% success rate for simulation
     
+    // Update trade statistics
+    if (simulationActive) {
+      tradeStats.total++;
+      if (action === 'BUY') tradeStats.buys++;
+      else tradeStats.sells++;
+      if (success) tradeStats.successful++;
+    }
+    
     if (success) {
       return {
         success: true,
@@ -281,6 +431,12 @@ export const api = {
     } else {
       throw new Error("Trade simulation failed - network error");
     }
+  },
+  
+  getSimulationMetrics: async () => {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    return getSimulationMetrics();
   },
   
   startSimulation,

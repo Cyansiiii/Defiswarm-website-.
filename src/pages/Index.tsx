@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import PriceChart from '@/components/PriceChart';
-import TradePanel from '@/components/TradePanel';
+import SimulationLog from '@/components/SimulationLog';
 import ActivityLog from '@/components/ActivityLog';
 import Footer from '@/components/Footer';
 import { api } from '@/lib/api';
@@ -51,7 +51,7 @@ const Index = () => {
               <PriceChart />
             </div>
             <div>
-              <TradePanel />
+              <SimulationLog />
             </div>
           </div>
           

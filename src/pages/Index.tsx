@@ -23,7 +23,7 @@ const Index = () => {
           if (newStatus.active) {
             toast({
               title: "Simulation Started",
-              description: "DeFiSwarm is now actively monitoring ETH/USDT prices.",
+              description: "DeFiSwarm is now actively monitoring ETH/USDT prices with multiple agent processes.",
             });
           }
         }

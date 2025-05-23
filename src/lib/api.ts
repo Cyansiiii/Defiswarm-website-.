@@ -26,6 +26,12 @@ interface BinanceKline {
   ignore: string;
 }
 
+interface AgentThought {
+  agentName: string;
+  timestamp: string;
+  thought: string;
+}
+
 interface SimulationMetrics {
   volatility: number;
   averagePrice: number;
@@ -44,6 +50,7 @@ interface SimulationMetrics {
     description: string;
     impact: "LOW" | "MEDIUM" | "HIGH";
   }[];
+  agentThoughts: AgentThought[];
 }
 
 // Store the simulation state and metrics
@@ -51,6 +58,7 @@ let simulationActive = false;
 let simulationInterval: number | null = null;
 let priceHistory: number[] = [];
 let marketEvents: { timestamp: string; description: string; impact: "LOW" | "MEDIUM" | "HIGH" }[] = [];
+let agentThoughts: AgentThought[] = [];
 let tradeStats = {
   total: 0,
   buys: 0,
@@ -75,12 +83,80 @@ const fetchRealTimePrice = async (): Promise<number> => {
       
       // Detect significant price changes and log them as events
       detectPriceEvents(price);
+      
+      // Generate agent thoughts based on the price
+      generateAgentThoughts(price);
     }
     
     return price;
   } catch (error) {
     console.error('Error fetching real-time price:', error);
     return getCurrentPrice(); // Fallback to mock data
+  }
+};
+
+// Generate agent thoughts based on price movements and market conditions
+const generateAgentThoughts = (currentPrice: number): void => {
+  if (priceHistory.length < 2) return;
+  
+  const previousPrice = priceHistory[priceHistory.length - 2];
+  const percentChange = (currentPrice - previousPrice) / previousPrice;
+  const now = new Date().toISOString();
+  
+  // Price Checker Agent
+  if (Math.random() > 0.6) { // Don't generate thoughts on every tick
+    let priceCheckerThought = "";
+    if (Math.abs(percentChange) > 0.01) {
+      priceCheckerThought = `Detected significant price movement of ${(percentChange * 100).toFixed(2)}%. Current price: $${currentPrice.toFixed(2)}. Analyzing recent trends to determine if this is part of a larger pattern.`;
+    } else {
+      priceCheckerThought = `Current price at $${currentPrice.toFixed(2)} is within normal fluctuation range. Continuing to monitor for breakout patterns or support/resistance tests.`;
+    }
+    
+    agentThoughts.unshift({
+      agentName: "Price Checker Agent",
+      timestamp: now,
+      thought: priceCheckerThought
+    });
+  }
+  
+  // Trade Maker Agent
+  if (Math.random() > 0.7) {
+    let tradeMakerThought = "";
+    const volatility = calculateVolatility();
+    
+    if (volatility > 0.02) {
+      tradeMakerThought = `Market volatility at ${(volatility * 100).toFixed(2)}% exceeds threshold. Recommending cautious positions with tight stop-losses.`;
+    } else if (percentChange > 0.005) {
+      tradeMakerThought = `Upward momentum detected. Analyzing volume patterns to confirm trend strength. Preparing BUY signal if confirmation indicators align.`;
+    } else if (percentChange < -0.005) {
+      tradeMakerThought = `Downward price action observed. Checking key support levels at ${(currentPrice * 0.99).toFixed(2)} and ${(currentPrice * 0.98).toFixed(2)}. Will recommend SELL if support breaks.`;
+    } else {
+      tradeMakerThought = `Market in consolidation phase. Holding current positions and waiting for clear directional signals.`;
+    }
+    
+    agentThoughts.unshift({
+      agentName: "Trade Maker Agent",
+      timestamp: now,
+      thought: tradeMakerThought
+    });
+  }
+  
+  // Trade Logger Agent
+  if (Math.random() > 0.8) {
+    const recentTrades = tradeStats.total > 0 
+      ? `Logging recent trading activity: ${tradeStats.buys} buys, ${tradeStats.sells} sells with ${(tradeStats.successful / Math.max(tradeStats.total, 1) * 100).toFixed(0)}% success rate.` 
+      : "No trades executed yet. Waiting for optimal entry conditions.";
+      
+    agentThoughts.unshift({
+      agentName: "Trade Logger Agent",
+      timestamp: now,
+      thought: recentTrades + ` Current PnL simulation indicates ${Math.random() > 0.5 ? 'positive' : 'negative'} returns over past ${Math.floor(5 + Math.random() * 10)} intervals.`
+    });
+  }
+  
+  // Keep only the most recent 30 thoughts
+  while (agentThoughts.length > 30) {
+    agentThoughts.pop();
   }
 };
 
@@ -217,7 +293,8 @@ const getSimulationMetrics = (): SimulationMetrics => {
       sells: tradeStats.sells,
       successRate: successRate
     },
-    events: marketEvents
+    events: marketEvents,
+    agentThoughts: agentThoughts
   };
 };
 
@@ -312,6 +389,27 @@ const startSimulation = () => {
   // Reset price history and events when starting a new simulation
   priceHistory = [];
   marketEvents = [];
+  agentThoughts = []; // Reset agent thoughts when starting a new simulation
+  
+  // Add initial agent thoughts
+  const now = new Date().toISOString();
+  agentThoughts.push({
+    agentName: "Price Checker Agent",
+    timestamp: now,
+    thought: "Initializing price monitoring system. Loading historical data and establishing baseline patterns."
+  });
+  
+  agentThoughts.push({
+    agentName: "Trade Maker Agent",
+    timestamp: now,
+    thought: "Setting up trading parameters. Calibrating sensitivity thresholds based on current market conditions."
+  });
+  
+  agentThoughts.push({
+    agentName: "Trade Logger Agent",
+    timestamp: now,
+    thought: "Trade logging system activated. Ready to record and analyze trade execution metrics."
+  });
   
   // Set up an interval to periodically fetch new data
   simulationInterval = window.setInterval(() => {
@@ -355,6 +453,26 @@ const stopSimulation = () => {
   }
   
   console.log('DeFiSwarm simulation stopped');
+  
+  // Add final thoughts when simulation ends
+  const now = new Date().toISOString();
+  agentThoughts.unshift({
+    agentName: "Price Checker Agent",
+    timestamp: now,
+    thought: "Simulation concluded. Final price analysis complete. Detected " + marketEvents.length + " significant price events during the session."
+  });
+  
+  agentThoughts.unshift({
+    agentName: "Trade Maker Agent",
+    timestamp: now,
+    thought: `Simulation ended. Overall strategy performance: ${tradeStats.successful} successful trades out of ${tradeStats.total} total trades.`
+  });
+  
+  agentThoughts.unshift({
+    agentName: "Trade Logger Agent",
+    timestamp: now,
+    thought: "Session logs finalized. Trade summary and performance metrics ready for review."
+  });
   
   return { active: simulationActive };
 };

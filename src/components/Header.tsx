@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Menu, X, TrendingUp, Bell } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -34,12 +35,12 @@ const Header: React.FC = () => {
           {/* Logo */}
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <a href="/" className="flex items-center">
+              <Link to="/" className="flex items-center">
                 <div className="h-8 w-8 rounded-md bg-gradient-to-br from-defi-teal to-defi-bright-teal flex items-center justify-center mr-2 animate-pulse-glow">
                   <TrendingUp className="h-5 w-5 text-white" />
                 </div>
                 <span className="font-bold text-xl tracking-tight">DeFiSwarm</span>
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -57,9 +58,9 @@ const Header: React.FC = () => {
 
           {/* Navigation Links (Desktop) */}
           <div className="hidden md:flex space-x-6">
-            <a href="#dashboard" className="text-defi-gray hover:text-white transition-colors">Dashboard</a>
-            <a href="#trades" className="text-defi-gray hover:text-white transition-colors">Trades</a>
-            <a href="#analytics" className="text-defi-gray hover:text-white transition-colors">Analytics</a>
+            <Link to="/" className="text-defi-gray hover:text-white transition-colors">Dashboard</Link>
+            <Link to="/trades" className="text-defi-gray hover:text-white transition-colors">Trades</Link>
+            <Link to="/analytics" className="text-defi-gray hover:text-white transition-colors">Analytics</Link>
             <a href="#about" className="text-defi-gray hover:text-white transition-colors">About</a>
           </div>
 
@@ -88,15 +89,15 @@ const Header: React.FC = () => {
       {/* Mobile menu */}
       <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'} bg-defi-blue border-b border-defi-blue/30`}>
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          <a href="#dashboard" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-defi-light-blue/20">
+          <Link to="/" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-defi-light-blue/20">
             Dashboard
-          </a>
-          <a href="#trades" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-defi-light-blue/20">
+          </Link>
+          <Link to="/trades" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-defi-light-blue/20">
             Trades
-          </a>
-          <a href="#analytics" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-defi-light-blue/20">
+          </Link>
+          <Link to="/analytics" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-defi-light-blue/20">
             Analytics
-          </a>
+          </Link>
           <a href="#about" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-defi-light-blue/20">
             About
           </a>

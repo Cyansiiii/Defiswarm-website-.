@@ -1,8 +1,73 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowRight, TrendingUp, Shield, Database } from 'lucide-react';
+import { api } from '@/lib/api';
+
+interface TradeRecommendation {
+  action: string;
+  confidence: number;
+  reason: string;
+  price_target: number;
+  stop_loss: number;
+}
 
 const HeroSection: React.FC = () => {
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [priceChange, setPriceChange] = useState<{value: number, percentage: number, isPositive: boolean}>({
+    value: 0, 
+    percentage: 0, 
+    isPositive: true
+  });
+  const [recommendation, setRecommendation] = useState<TradeRecommendation>({
+    action: 'BUY',
+    confidence: 87,
+    reason: '',
+    price_target: 3800,
+    stop_loss: 3450
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch real-time ETH price
+        const price = await api.getCurrentETHPrice();
+        setCurrentPrice(price);
+        
+        // Fetch historical price data to calculate 24h change
+        const historyData = await api.getETHPriceHistory();
+        if (historyData && historyData.length >= 2) {
+          const yesterday = historyData[historyData.length - 2].price;
+          const today = historyData[historyData.length - 1].price;
+          const change = today - yesterday;
+          const changePercentage = (change / yesterday) * 100;
+          
+          setPriceChange({
+            value: Math.abs(change),
+            percentage: Math.abs(changePercentage),
+            isPositive: change >= 0
+          });
+        }
+        
+        // Fetch trade recommendation
+        const tradeRec = await api.getTradeRecommendation();
+        setRecommendation(tradeRec);
+      } catch (error) {
+        console.error('Failed to fetch data for hero section:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
+  };
+
   return (
     <section className="relative overflow-hidden pt-16 md:pt-24 pb-16 bg-grid-pattern grid-bg">
       {/* Background gradient overlay */}
@@ -24,10 +89,10 @@ const HeroSection: React.FC = () => {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4">
-              <button className="bg-gradient-to-r from-defi-teal to-defi-bright-teal hover:opacity-90 transition-opacity text-white font-medium px-6 py-3 rounded-md flex items-center justify-center">
+              <a href="#dashboard" className="bg-gradient-to-r from-defi-teal to-defi-bright-teal hover:opacity-90 transition-opacity text-white font-medium px-6 py-3 rounded-md flex items-center justify-center">
                 Start Simulation
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
+              </a>
               <a href="#learn-more" className="bg-defi-blue/30 hover:bg-defi-blue/50 transition-colors text-white font-medium px-6 py-3 rounded-md flex items-center justify-center">
                 Learn More
               </a>
@@ -92,7 +157,13 @@ const HeroSection: React.FC = () => {
                   
                   <div className="flex justify-between items-center text-xs text-defi-gray">
                     <span>24h Change:</span>
-                    <span className="text-defi-green">+5.18%</span>
+                    {isLoading ? (
+                      <span className="text-white animate-pulse">Loading...</span>
+                    ) : (
+                      <span className={priceChange.isPositive ? "text-defi-green" : "text-defi-red"}>
+                        {priceChange.isPositive ? "+" : "-"}{priceChange.percentage.toFixed(2)}%
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -100,27 +171,57 @@ const HeroSection: React.FC = () => {
               <div className="rounded-lg bg-defi-blue/40 p-4 border border-defi-blue/60">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-defi-gray text-sm">Latest Recommendation</span>
-                  <span className="text-xs px-2 py-1 bg-defi-green rounded-full text-white">BUY</span>
+                  {isLoading ? (
+                    <span className="text-xs px-2 py-1 bg-defi-blue rounded-full text-white animate-pulse">
+                      Loading...
+                    </span>
+                  ) : (
+                    <span className={`text-xs px-2 py-1 ${recommendation.action === 'BUY' ? 'bg-defi-green' : 'bg-defi-red'} rounded-full text-white`}>
+                      {recommendation.action}
+                    </span>
+                  )}
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-defi-gray text-xs">Confidence</span>
-                    <span className="text-white text-xs font-medium">87%</span>
+                    {isLoading ? (
+                      <span className="text-white text-xs animate-pulse">Loading...</span>
+                    ) : (
+                      <span className="text-white text-xs font-medium">{recommendation.confidence}%</span>
+                    )}
                   </div>
                   
                   <div className="w-full bg-defi-blue/50 rounded-full h-1.5">
-                    <div className="bg-gradient-to-r from-defi-teal to-defi-bright-teal h-1.5 rounded-full" style={{ width: '87%' }}></div>
+                    {isLoading ? (
+                      <div className="bg-gradient-to-r from-defi-teal to-defi-bright-teal h-1.5 rounded-full animate-pulse" 
+                           style={{ width: '50%' }}></div>
+                    ) : (
+                      <div className="bg-gradient-to-r from-defi-teal to-defi-bright-teal h-1.5 rounded-full" 
+                           style={{ width: `${recommendation.confidence}%` }}></div>
+                    )}
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     <div className="bg-defi-blue/30 p-2 rounded border border-defi-blue/40">
                       <div className="text-xs text-defi-gray">Target</div>
-                      <div className="text-sm text-white font-medium">$3,800</div>
+                      {isLoading ? (
+                        <div className="text-sm text-white font-medium animate-pulse">Loading...</div>
+                      ) : (
+                        <div className="text-sm text-white font-medium">
+                          {formatPrice(recommendation.price_target)}
+                        </div>
+                      )}
                     </div>
                     <div className="bg-defi-blue/30 p-2 rounded border border-defi-blue/40">
                       <div className="text-xs text-defi-gray">Stop Loss</div>
-                      <div className="text-sm text-white font-medium">$3,450</div>
+                      {isLoading ? (
+                        <div className="text-sm text-white font-medium animate-pulse">Loading...</div>
+                      ) : (
+                        <div className="text-sm text-white font-medium">
+                          {formatPrice(recommendation.stop_loss)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
